@@ -5,12 +5,13 @@
 
 -include_lib("compiler/src/core_parse.hrl").
 
+%% display core AST represention of the file test.erl
 ex() ->
+    {ok, _} = compile:file("test.erl", [to_core]),
     {ok, F} = file:read_file("test.core"),
     FF = binary_to_list(F),
     {ok, T, _} = core_scan:string(FF),
-    core_parse:parse(T).
-
+    io:format("~p~n", [core_parse:parse(T)]).
 set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
 
@@ -59,10 +60,30 @@ test() ->
 			{c_cons,[],
 			 {c_literal,[],33},
 			 {c_literal,[],[]}}}}}}}}}}}}}}]},
+    L4 = {c_case,[],
+	  {c_literal,[],tt},
+	  [{c_clause,[],
+	    [{c_literal,[],true}],
+	    {c_literal,[],true},
+	    {c_literal,[],foo}},
+	   {c_clause,[],
+	    [{c_literal,[],false}],
+	    {c_literal,[],true},
+	    {c_literal,[],bar}},
+	   {c_clause,
+	    [compiler_generated],
+	    [{c_var,[],'_cor2'}],
+	    {c_literal,[],true},
+	    {c_primop,[],
+	     {c_literal,[],match_fail},
+	     [{c_tuple,[],
+	       [{c_literal,[],case_clause},
+		{c_var,[],'_cor2'}]}]}}]},
 
     eval(L, orddict:new()),
     eval(L2, orddict:new()),
-    eval(L3, orddict:new()).
+    eval(L3, orddict:new()),
+    eval(L4, orddict:new()).
     
 
 eval(#c_let {} = Let, BindingStore) ->
@@ -131,32 +152,63 @@ eval(#c_call { module = M, name = F, args = Args}, BindingStore) ->
 %% evaluate a case
 eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
     {ArgValue, ArgBS} = eval(Arg, BindingStore),
-    %% evaluate each clause until one is true
-    Clause = Clauses,
-    eval(Clause, ArgBS);
- 
-%% evaluate a clause. Return {true, NewBindingStore} or {false, BindingStore}
-eval(#c_clause { pats = [Pattern | Patterns], guard = Guard, body = Body },
-     BindingStore) ->
-    %% test if each pattern match
-    case match_patterns(Pattern, BindingStore) of
-                {true, PatternsBS} ->
-                    case eval_guard(Guard, PatternsBS) of
-                               {true, GuardBS} ->
-                                   eval(Body, GuardBS);
-                               {false, GuardBS} ->
-                                   {false, GuardBS}
-                    end;   
-                {false, PatternsBS} ->
-                    {false, PatternsBS}
+    eval_clauses(Clauses, ArgValue, ArgBS).
+	
+%% evaluate a list of clauses until one match, or raise a error
+eval_clauses([], Value, BindingStore) ->
+    erlang:error(nomatch);
+eval_clauses([Clause | Clauses], Value, BindingStore) ->
+    case eval_clause(Clause, Value, BindingStore) of
+	{true, Result} ->
+	    Result;
+	{false, _} ->
+	    eval_clauses(Clauses, Value, BindingStore)
     end.
  
-match_patterns([Pattern | Patterns], BindingStore) ->
-    {Value, BS} = eval(Pattern, BindingStore),
-    ok.
-   
-match_pattern(#c_literal {} = Litteral, BindingStore) ->
-    {Litteral#c_literal.val, BindingStore}.
+%% evaluate a clause. Return {true, NewBindingStore} or {false, BindingStore}
+eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
+	    Value, BindingStore) ->
+    %% at this point, all patterns have match, we can evaluate the guard, and
+    %% if guard is true, evaluate the body
+    case eval_guard(Guard, BindingStore) of
+	{true, GuardBS} ->
+	    {true, eval(Body, GuardBS)};
+	{false, GuardBS} ->
+	    {false, GuardBS}
+    end;
+
+eval_clause(#c_clause { pats = [Pattern | PatternsTail], guard = Guard, body = Body } = Patterns,
+	    Value, BindingStore) ->
+    %% test if each pattern match
+    case is_pattern_match(Pattern, Value, BindingStore) of
+	{true, PatternsBS} ->
+	    eval_clause(Patterns#c_clause { pats = PatternsTail}, Value, PatternsBS);
+	{false, PatternsBS} ->
+	    {false, PatternsBS}
+    end.
  
+is_pattern_match(#c_literal {} = Litteral, Value, BindingStore) ->
+    if Litteral#c_literal.val =:= Value ->
+	    {true, BindingStore};
+       true ->
+	    {false, BindingStore}
+    end;
+is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
+    %% if the Variable is already bound, the values must match. Otherwise, we 
+    %% bind the value to the variable
+    try 
+	BindingValue = get_binding(Name, BindingStore),
+	if Value =:= BindingValue ->
+		{true, BindingStore};
+	   true ->
+		{false, BindingStore}
+	end
+    catch
+	_:_ ->
+	    %% the variable is not bound
+	    NewBS = set_binding(Name, Value, BindingStore),
+	    {true, NewBS}
+    end.
+
 eval_guard(_Guard, BindingStore) ->
     {true, BindingStore}.
