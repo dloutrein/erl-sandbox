@@ -12,6 +12,7 @@ ex() ->
     FF = binary_to_list(F),
     {ok, T, _} = core_scan:string(FF),
     io:format("~p~n", [core_parse:parse(T)]).
+
 set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
 
@@ -61,7 +62,7 @@ test() ->
 			 {c_literal,[],33},
 			 {c_literal,[],[]}}}}}}}}}}}}}}]},
     L4 = {c_case,[],
-	  {c_literal,[],tt},
+	  {c_literal,[],true},
 	  [{c_clause,[],
 	    [{c_literal,[],true}],
 	    {c_literal,[],true},
@@ -148,6 +149,15 @@ eval(#c_call { module = M, name = F, args = Args}, BindingStore) ->
 						eval(Arg, FunBS)
 					end, FunctionBS, Args),
     {apply(Module, Function, RealArgs), ArgsBS};
+
+%% evaluate a primops
+eval(#c_primop { name = F, args = Args}, BindingStore) ->
+    {Function, FunctionBS} = eval(F, BindingStore),
+    {RealArgs, ArgsBS} = lists:mapfoldl(fun(Arg, FunBS) ->
+						eval(Arg, FunBS)
+					end, FunctionBS, Args),
+    {apply(Function, RealArgs), ArgsBS};
+
     
 %% evaluate a case
 eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
@@ -155,7 +165,7 @@ eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
     eval_clauses(Clauses, ArgValue, ArgBS).
 	
 %% evaluate a list of clauses until one match, or raise a error
-eval_clauses([], Value, BindingStore) ->
+eval_clauses([], _Value, _BindingStore) ->
     erlang:error(nomatch);
 eval_clauses([Clause | Clauses], Value, BindingStore) ->
     case eval_clause(Clause, Value, BindingStore) of
@@ -167,7 +177,7 @@ eval_clauses([Clause | Clauses], Value, BindingStore) ->
  
 %% evaluate a clause. Return {true, NewBindingStore} or {false, BindingStore}
 eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
-	    Value, BindingStore) ->
+	    _Value, BindingStore) ->
     %% at this point, all patterns have match, we can evaluate the guard, and
     %% if guard is true, evaluate the body
     case eval_guard(Guard, BindingStore) of
@@ -177,7 +187,7 @@ eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
 	    {false, GuardBS}
     end;
 
-eval_clause(#c_clause { pats = [Pattern | PatternsTail], guard = Guard, body = Body } = Patterns,
+eval_clause(#c_clause { pats = [Pattern | PatternsTail] } = Patterns,
 	    Value, BindingStore) ->
     %% test if each pattern match
     case is_pattern_match(Pattern, Value, BindingStore) of
@@ -193,6 +203,10 @@ is_pattern_match(#c_literal {} = Litteral, Value, BindingStore) ->
        true ->
 	    {false, BindingStore}
     end;
+
+is_pattern_match(#c_tuple {} = Tuple, Value, BindingStore) ->
+    ok;
+
 is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
     %% if the Variable is already bound, the values must match. Otherwise, we 
     %% bind the value to the variable
