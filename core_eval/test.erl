@@ -16,5 +16,7 @@ test2(Param) ->
 	true ->
 	    foo;
 	false ->
-	    bar
+	    bar;
+	{t1, t2} ->
+	    buzz
     end.

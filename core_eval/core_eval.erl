@@ -62,7 +62,8 @@ test() ->
 			 {c_literal,[],33},
 			 {c_literal,[],[]}}}}}}}}}}}}}}]},
     L4 = {c_case,[],
-	  {c_literal,[],true},
+%	  {c_literal,[],true},
+	  {c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]},
 	  [{c_clause,[],
 	    [{c_literal,[],true}],
 	    {c_literal,[],true},
@@ -71,6 +72,10 @@ test() ->
 	    [{c_literal,[],false}],
 	    {c_literal,[],true},
 	    {c_literal,[],bar}},
+	   {c_clause,[],
+	    [{c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]}],
+	    {c_literal,[],true},
+	    {c_literal,[],buzz}},
 	   {c_clause,
 	    [compiler_generated],
 	    [{c_var,[],'_cor2'}],
@@ -204,8 +209,8 @@ is_pattern_match(#c_literal {} = Litteral, Value, BindingStore) ->
 	    {false, BindingStore}
     end;
 
-is_pattern_match(#c_tuple {} = Tuple, Value, BindingStore) ->
-    ok;
+is_pattern_match(#c_tuple { es = Elements}, Value, BindingStore) ->
+    match_tuple_elements(Elements, Value, 1, BindingStore);
 
 is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
     %% if the Variable is already bound, the values must match. Otherwise, we 
@@ -222,6 +227,17 @@ is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
 	    %% the variable is not bound
 	    NewBS = set_binding(Name, Value, BindingStore),
 	    {true, NewBS}
+    end.
+
+match_tuple_elements([], _Tuple, _Index, BindingStore) ->
+    {true, BindingStore};
+match_tuple_elements([Element | Elements], Tuple, Index, BindingStore) ->
+    %% test if each element
+    case is_pattern_match(Element, element(Tuple, Index), BindingStore) of
+	{false, MatchBS} ->
+	    {false, MatchBS};
+	{true, MatchBS} ->
+	    match_tuple_elements(Elements, Tuple, Index+1, MatchBS)
     end.
 
 eval_guard(_Guard, BindingStore) ->
