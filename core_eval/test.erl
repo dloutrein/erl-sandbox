@@ -18,5 +18,7 @@ test2(Param) ->
 	false ->
 	    bar;
 	{t1, t2} ->
-	    buzz
+	    buzz;
+	[a, b, 12, {"foo", "bar"}] ->
+	    great
     end.
