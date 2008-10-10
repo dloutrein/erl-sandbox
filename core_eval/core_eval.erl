@@ -62,27 +62,27 @@ test() ->
 			 {c_literal,[],33},
 			 {c_literal,[],[]}}}}}}}}}}}}}}]},
     L4 = {c_case,[],
-	  {c_literal,[],aaa},
-%	  {c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]},
-%% {c_cons,[],
-%% 	      {c_literal,[],a},
-%% 	      {c_cons,[],
-%% 	       {c_literal,[],b},
-%% 	       {c_cons,[],
-%% 		{c_literal,[],12},
+%	  {c_literal,[],aaa},
+	  {c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]},
+%% 	  {c_cons,[],
+%% 	   {c_literal,[],a},
+%% 	   {c_cons,[],
+%% 	    {c_literal,[],b},
+%% 	    {c_cons,[],
+%% 	     {c_literal,[],12},
+%% 	     {c_cons,[],
+%% 	      {c_tuple,[],
+%% 	       [{c_cons,[],
+%% 		 {c_literal,[],102},
+%% 		 {c_cons,[],
+%% 		  {c_literal,[],111},
+%% 		  {c_cons,[],{c_literal,[],111},{c_literal,[],[]}}}},
 %% 		{c_cons,[],
-%% 		 {c_tuple,[],
-%% 		  [{c_cons,[],
-%% 		    {c_literal,[],102},
-%% 		    {c_cons,[],
-%% 		     {c_literal,[],111},
-%% 		     {c_cons,[],{c_literal,[],111},{c_literal,[],[]}}}},
-%% 		   {c_cons,[],
-%% 		    {c_literal,[],98},
-%% 		    {c_cons,[],
-%% 		     {c_literal,[],97},
-%% 		     {c_cons,[],{c_literal,[],114},{c_literal,[],[]}}}}]},
-%% 		 {c_literal,[],[]}}}}},
+%% 		 {c_literal,[],98},
+%% 		 {c_cons,[],
+%% 		  {c_literal,[],97},
+%% 		  {c_cons,[],{c_literal,[],114},{c_literal,[],[]}}}}]},
+%% 	      {c_literal,[],[]}}}}},
 	  [{c_clause,[],
 	    [{c_literal,[],true}],
 	    {c_literal,[],true},
@@ -254,16 +254,16 @@ is_pattern_match(#c_tuple {}, Value, BindingStore)
   when is_tuple(Value) =:= false ->
     {false, BindingStore};
 is_pattern_match(#c_tuple { es = Elements}, Value, BindingStore) 
-  when tuple_size(Value) /= length(Elements) ->
+  when tuple_size(Value) =/= length(Elements) ->
     {false, BindingStore};
 is_pattern_match(#c_tuple { es = Elements}, Value, BindingStore) ->
     match_tuple_elements(Elements, Value, 1, BindingStore);
 
-is_pattern_match(#c_cons { hd = _Head, tl = Tail}, Value, BindingStore)
-    when length(Value) /= length(Tail+1) ->
+is_pattern_match(#c_cons {}, Value, BindingStore)
+    when is_list(Value) =:= false ->
     {false, BindingStore};
-is_pattern_match(#c_cons { hd = Head, tl = Tail}, Value, BindingStore) ->
-    match_cons_elements([Head, Tail], Value, BindingStore);
+is_pattern_match(#c_cons {} = Cons, Value, BindingStore) ->
+    match_cons_elements(Cons, Value, BindingStore);
 
 is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
     %% if the Variable is already bound, the values must match. Otherwise, we 
@@ -283,8 +283,10 @@ is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
     end.
 
 
-match_tuple_elements([], Value, _Index, BindingStore) when is_tuple(Value) =:= false ->
+match_tuple_elements(_, Value, _Index, BindingStore) when is_tuple(Value) =:= false ->
     {false, BindingStore};
+match_tuple_elements([], _Value, _Index, BindingStore) ->
+    {true, BindingStore};
 match_tuple_elements([Element | Elements], Tuple, Index, BindingStore) ->
     case is_pattern_match(Element, element(Index, Tuple), BindingStore) of
 	{false, MatchBS} ->
@@ -293,14 +295,15 @@ match_tuple_elements([Element | Elements], Tuple, Index, BindingStore) ->
 	    match_tuple_elements(Elements, Tuple, Index+1, MatchBS)
     end.
 
-match_cons_elements([], [], BindingStore) ->
+%% The last element of a cons is always nil ([])
+match_cons_elements({c_literal, [], []}, [], BindingStore) ->
     {true, BindingStore};
-match_cons_elements([Element, Elements], [Value, Values], BindingStore) ->
-    case is_pattern_match(Element, Value, BindingStore) of
+match_cons_elements(#c_cons { hd = Head, tl = Tail}, [Value | Values], BindingStore) ->
+    case is_pattern_match(Head, Value, BindingStore) of
 	{false, MatchBS} ->
 	    {false, MatchBS};
 	{true, MatchBS} ->
-	    match_cons_elements(Elements, Values, MatchBS)
+	    match_cons_elements(Tail, Values, MatchBS)
     end.
 
 eval_guard(_Guard, BindingStore) ->
