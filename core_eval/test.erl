@@ -20,5 +20,7 @@ test2(Param) ->
 	{t1, t2} ->
 	    buzz;
 	[a, b, 12, {"foo", "bar"}] ->
-	    great
+	    great;
+	{1, 2.3} = ATuple ->
+	    ATuple
     end.
