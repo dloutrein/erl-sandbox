@@ -63,7 +63,8 @@ test() ->
 			 {c_literal,[],[]}}}}}}}}}}}}}}]},
     L4 = {c_case,[],
 %	  {c_literal,[],aaa},
-	  {c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]},
+%	  {c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]},
+	  {c_tuple,[],[{c_literal,[],1},{c_literal,[],2.30000}]},
 %% 	  {c_cons,[],
 %% 	   {c_literal,[],a},
 %% 	   {c_cons,[],
@@ -117,6 +118,12 @@ test() ->
 		 {c_literal,[],[]}}}}}],
 	    {c_literal,[],true},
 	    {c_literal,[],great}},
+	   {c_clause,[],
+	    [{c_alias,[],
+	      {c_var,[],'ATuple'},
+	      {c_tuple,[],[{c_literal,[],1},{c_literal,[],2.30000}]}}],
+	    {c_literal,[],true},
+	    {c_var,[],'ATuple'}},
 	   {c_clause,
 	    [compiler_generated],
 	    [{c_var,[],'_cor2'}],
@@ -224,7 +231,7 @@ eval_clauses([Clause | Clauses], Value, BindingStore) ->
 %% evaluate a clause. Return {true, NewBindingStore} or {false, BindingStore}
 eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
 	    _Value, BindingStore) ->
-    %% at this point, all patterns have match, we can evaluate the guard, and
+    %% at this point, all patterns have matched, we can evaluate the guard, and
     %% if guard is true, evaluate the body
     case eval_guard(Guard, BindingStore) of
 	{true, GuardBS} ->
@@ -280,8 +287,28 @@ is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
 	    %% the variable is not bound
 	    NewBS = set_binding(Name, Value, BindingStore),
 	    {true, NewBS}
-    end.
+    end;
 
+is_pattern_match(#c_alias { var = #c_var { name = Name}, pat = Pattern}, Value, BindingStore) ->
+    %% If the pattern match, then create a binding
+    case is_pattern_match(Pattern, Value, BindingStore) of
+	{true, PatternsBS} ->
+	    try 
+		BindingValue = get_binding(Name, PatternsBS),
+		if Value =:= BindingValue ->
+			{true, PatternsBS};
+		   true ->
+			erlang:error(badmatch)
+		end
+	    catch
+		_:_ ->
+		    %% the variable is not bound
+		    NewBS = set_binding(Name, Value, PatternsBS),
+		    {true, NewBS}
+	    end;
+	{false, PatternsBS} ->
+	    {false, PatternsBS}
+    end.
 
 match_tuple_elements(_, Value, _Index, BindingStore) when is_tuple(Value) =:= false ->
     {false, BindingStore};
@@ -306,5 +333,10 @@ match_cons_elements(#c_cons { hd = Head, tl = Tail}, [Value | Values], BindingSt
 	    match_cons_elements(Tail, Values, MatchBS)
     end.
 
-eval_guard(_Guard, BindingStore) ->
-    {true, BindingStore}.
+eval_guard(Guard, BindingStore) ->
+    case eval(Guard, BindingStore) of
+	{true, GuardBS} ->
+	    {true, GuardBS};
+	{_, GuardBS} ->
+	    {false, GuardBS}
+    end.
