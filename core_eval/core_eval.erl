@@ -17,10 +17,21 @@ set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
 
 get_binding(Name, BindingStore) ->
-    orddict:fetch(Name, BindingStore).
+    case orddict:find(Name, BindingStore) of
+	{ok, Value} -> {value, Value};
+	error -> unbound
+    end.
 
 remove_binding(Name, BindingStore) ->
     orddict:erase(Name, BindingStore).
+
+test2() ->
+    {ok, _} = compile:file("test2.erl", [to_core]),
+    {ok, F} = file:read_file("test2.core"),
+    FF = binary_to_list(F),
+    {ok, T, _} = core_scan:string(FF),
+    {ok, AST} = core_parse:parse(T).
+    
 
 test() ->
     L =  {c_let,[],
@@ -168,9 +179,14 @@ eval(#c_let {} = Let, BindingStore) ->
 eval(#c_literal {} = Litteral, BindingStore) ->
     {Litteral#c_literal.val, BindingStore};
 
-%% Return the value of a variable
+%% Return the value of a variable, or error if unbound
 eval(#c_var {} = Var, BindingStore) ->
-    {get_binding(Var#c_var.name, BindingStore), BindingStore};
+    case get_binding(Var#c_var.name, BindingStore) of
+	{value, Value} ->
+	    {Value, BindingStore};
+	_ ->
+	    erlang:error(unbound)
+    end;
 
 %% Evalues all values and return a list of evaluation result for each
 eval(#c_values { es = Values }, BindingStore) ->
@@ -275,36 +291,28 @@ is_pattern_match(#c_cons {} = Cons, Value, BindingStore) ->
 is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
     %% if the Variable is already bound, the values must match. Otherwise, we 
     %% bind the value to the variable
-    try 
-	BindingValue = get_binding(Name, BindingStore),
-	if Value =:= BindingValue ->
-		{true, BindingStore};
-	   true ->
-		{false, BindingStore}
-	end
-    catch
-	_:_ ->
-	    %% the variable is not bound
+    case get_binding(Name, BindingStore) of
+	{value, Value} ->  %% value is matched here
+	    {true, BindingStore};
+	unbound ->  %% the variable is not bound
 	    NewBS = set_binding(Name, Value, BindingStore),
-	    {true, NewBS}
+	    {true, NewBS};
+	_ -> %% values doesn't match
+	    {false, BindingStore}
     end;
 
 is_pattern_match(#c_alias { var = #c_var { name = Name}, pat = Pattern}, Value, BindingStore) ->
     %% If the pattern match, then create a binding
     case is_pattern_match(Pattern, Value, BindingStore) of
 	{true, PatternsBS} ->
-	    try 
-		BindingValue = get_binding(Name, PatternsBS),
-		if Value =:= BindingValue ->
-			{true, PatternsBS};
-		   true ->
-			erlang:error(badmatch)
-		end
-	    catch
-		_:_ ->
-		    %% the variable is not bound
+	    case get_binding(Name, PatternsBS) of
+		{value, BindingValue} ->  %% value is matched here
+		    {true, PatternsBS};
+		unbound ->  %% the variable is not bound
 		    NewBS = set_binding(Name, Value, PatternsBS),
-		    {true, NewBS}
+		    {true, NewBS};
+		_ ->
+		    erlang:error(badmatch)
 	    end;
 	{false, PatternsBS} ->
 	    {false, PatternsBS}
