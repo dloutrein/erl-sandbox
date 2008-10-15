@@ -24,3 +24,8 @@ test2(Param) ->
 	{1, 2.3} = ATuple ->
 	    ATuple
     end.
+
+test3(Bar) ->
+    (fun(Foo) ->
+	    {Foo}
+    end)(Bar).

@@ -145,12 +145,48 @@ test() ->
 	       [{c_literal,[],case_clause},
 		{c_var,[],'_cor2'}]}]}}]},
 
+    L5 = {c_fun,
+	  [{id,{0,17602895,'-test/0-fun-0-'}}],
+	  [{c_var,[],'_cor1'}],
+	  {c_call,[],
+	   {c_literal,[],erlang},
+	   {c_literal,[],'+'},
+	   [{c_literal,[],10},{c_var,[],'_cor1'}]}},
+
+    L6 = {c_fun,[],
+	  [{c_var,[],'_cor0'}],
+	  {c_let,[],
+	   [{c_var,[],'_cor3'}],
+	   {c_fun,
+	    [{id,{1,70942264,'-test3/1-fun-0-'}}],
+	    [{c_var,[],'_cor1'}],
+	    {c_tuple,[],[{c_var,[],'_cor1'}]}},
+	   {c_apply,[],{c_var,[],'_cor3'},[{c_var,[],'_cor0'}]}}},
+
     eval(L, orddict:new()),
     eval(L2, orddict:new()),
     eval(L3, orddict:new()),
-    eval(L4, orddict:new()).
-    
+    eval(L4, orddict:new()),
+    eval(L5, orddict:new()),
+    eval(L6, orddict:new()).
 
+%% evaluate an application
+eval(#c_apply { op = Function, args = Args}, BindingStore) ->
+    {Fun, FunBS} = eval(Function, BindingStore),
+    Values = lists:mapfoldl(fun(Arg, ArgBS) ->
+				    eval(Arg, ArgBS)
+			    end, FunBS, Args),
+    io:format("before apply ~p(~p)~n", [Fun, Values]),
+    apply(Fun, Values);
+
+%% Evaluates a fun
+eval(#c_fun { vars = Vars, body = Body }, BindingStore) ->
+    F = fun(Args) ->
+		eval_fun(Args, Vars, Body, BindingStore)
+	end,
+    {F, BindingStore};
+
+%% evaluate a Let
 eval(#c_let {} = Let, BindingStore) ->
     %% compute the values of each arguments and store them in the bindingStore
     IntermediateBS =
@@ -308,7 +344,7 @@ is_pattern_match(#c_alias { var = #c_var { name = Name}, pat = Pattern}, Value, 
     case is_pattern_match(Pattern, Value, BindingStore) of
 	{true, PatternsBS} ->
 	    case get_binding(Name, PatternsBS) of
-		{value, BindingValue} ->  %% value is matched here
+		{value, Value} ->  %% value is matched here
 		    {true, PatternsBS};
 		unbound ->  %% the variable is not bound
 		    NewBS = set_binding(Name, Value, PatternsBS),
@@ -350,3 +386,12 @@ eval_guard(Guard, BindingStore) ->
 	{_, GuardBS} ->
 	    {false, GuardBS}
     end.
+
+eval_fun(Args, Vars, Body, BindingStore) when length(Args) =:= length(Vars) ->
+    %% create the binding between args and var
+    ArgsBS = lists:foldl(fun({#c_var { name = VarName}, Value}, FunBS) ->
+				 set_binding(VarName, Value, FunBS)
+			 end, BindingStore, lists:zip(Vars, Args)),
+    %% we ignore the new binding store, as we return the original one
+    {Result, _} = eval(Body, ArgsBS),
+    {Result, BindingStore}.
