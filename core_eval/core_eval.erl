@@ -219,14 +219,13 @@ eval(#c_call { module = M, name = F, args = Args}, BindingStore) ->
 					end, FunctionBS, Args),
     {apply(Module, Function, RealArgs), ArgsBS};
 
-%% evaluate a primops
+%% evaluate a primop
 eval(#c_primop { name = F, args = Args}, BindingStore) ->
     {Function, FunctionBS} = eval(F, BindingStore),
     {RealArgs, ArgsBS} = lists:mapfoldl(fun(Arg, FunBS) ->
 						eval(Arg, FunBS)
 					end, FunctionBS, Args),
     {apply(Function, RealArgs), ArgsBS};
-
     
 %% evaluate a case
 eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
@@ -238,8 +237,11 @@ eval_clauses([], _Value, _BindingStore) ->
     erlang:error(nomatch);
 eval_clauses([Clause | Clauses], Value, BindingStore) ->
     case eval_clause(Clause, Value, BindingStore) of
-	{true, Result} ->
-	    Result;
+	{true, {Result, _ForgetTheseBindings}} ->
+	    %% as the scope of bindings is the clause body, we can forget all
+	    %% bindings that have been defined during the clause evaluation,
+	    %% they are not valid anymore
+	    {Result, BindingStore};
 	{false, _} ->
 	    eval_clauses(Clauses, Value, BindingStore)
     end.
