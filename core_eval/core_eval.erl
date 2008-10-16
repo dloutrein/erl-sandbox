@@ -170,7 +170,12 @@ test() ->
     eval(L5, orddict:new()),
     eval(L6, orddict:new()),
     {ok, L7} = ex(),
+    %% core_eval:call('test3/1', 10, B)
     eval(L7, orddict:new()).
+
+%% just for tests
+call(Name, Arg, BindingStore) ->
+    eval({c_apply, [], {c_var,[], Name}, [{c_literal, [], Arg}]}, BindingStore).
 
 %% evaluate a module. all functions are bound in the given BindingStore and then returned.
 %% Exported functions and attributes are ignored.
@@ -184,10 +189,13 @@ eval(#c_module { defs = Functions }, BindingStore) ->
 %% evaluate an application
 eval(#c_apply { op = Function, args = Args}, BindingStore) ->
     {Fun, FunBS} = eval(Function, BindingStore),
-    {Values, ValuesBS} = lists:mapfoldl(fun(Arg, ArgBS) ->
+    {Values, _ValuesBS} = lists:mapfoldl(fun(Arg, ArgBS) ->
 						eval(Arg, ArgBS)
 					end, FunBS, Args),
-    apply(Fun, [Values]);
+    %% special case in apply when there is no arguments given ([[]] in Values)
+    %% The Fun has only one arguments (which is a list of arguments for the target fun)
+    {Result, _} = apply(Fun, [case Values of [[]] -> []; _ -> Values end]),
+    {Result, BindingStore};
 
 %% Evaluates a fun
 eval(#c_fun { vars = Vars, body = Body }, BindingStore) ->

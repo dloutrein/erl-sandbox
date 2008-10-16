@@ -8,7 +8,7 @@ test() ->
     A = fun(YY) ->
 		XX + YY
 	end,
-    A().
+    A(22).
 
 test2(Param) ->
     A = Param,
