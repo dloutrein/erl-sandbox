@@ -11,7 +11,7 @@ ex() ->
     {ok, F} = file:read_file("test.core"),
     FF = binary_to_list(F),
     {ok, T, _} = core_scan:string(FF),
-    io:format("~p~n", [core_parse:parse(T)]).
+    core_parse:parse(T).
 
 set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
@@ -168,16 +168,26 @@ test() ->
     eval(L3, orddict:new()),
     eval(L4, orddict:new()),
     eval(L5, orddict:new()),
-    eval(L6, orddict:new()).
+    eval(L6, orddict:new()),
+    {ok, L7} = ex(),
+    eval(L7, orddict:new()).
+
+%% evaluate a module. all functions are bound in the given BindingStore and then returned.
+%% Exported functions and attributes are ignored.
+eval(#c_module { defs = Functions }, BindingStore) ->
+    lists:foldl(fun({ #c_fname { id = Name, arity = Arity}, Function}, FunBS) ->
+			{Fun, FunBS2} = eval(Function, FunBS),
+			FunName = list_to_atom(atom_to_list(Name) ++ "/" ++ integer_to_list(Arity)),
+			set_binding(FunName, Fun, FunBS2)
+		end, BindingStore, Functions);
 
 %% evaluate an application
 eval(#c_apply { op = Function, args = Args}, BindingStore) ->
     {Fun, FunBS} = eval(Function, BindingStore),
-    Values = lists:mapfoldl(fun(Arg, ArgBS) ->
-				    eval(Arg, ArgBS)
-			    end, FunBS, Args),
-    io:format("before apply ~p(~p)~n", [Fun, Values]),
-    apply(Fun, Values);
+    {Values, ValuesBS} = lists:mapfoldl(fun(Arg, ArgBS) ->
+						eval(Arg, ArgBS)
+					end, FunBS, Args),
+    apply(Fun, [Values]);
 
 %% Evaluates a fun
 eval(#c_fun { vars = Vars, body = Body }, BindingStore) ->
