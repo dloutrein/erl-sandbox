@@ -3,6 +3,25 @@
 
 -compile(export_all).
 
+
+run() ->
+    {ok, _} = compile:file("test.erl", [to_core]),
+    {ok, F} = file:read_file("test.core"),
+    FF = binary_to_list(F),
+    {ok, T, _} = core_scan:string(FF),
+    {ok, AST} = core_parse:parse(T),
+    %% run the tests
+    io:format("AST=~p~n", [AST]),
+    Bindings = core_eval:eval(AST, orddict:new()),
+    {Result, _} = core_eval:call('test/0', [], Bindings),
+    io:format("Result=~p, ~p~n", [Result, test()]),
+    Result = test(),
+
+    {Result3, _} = core_eval:call('test3/1', [2], Bindings),
+    io:format("Result3=~p, ~p~n", [Result3, test3(2)]),
+    Result3 = test3(2).
+    
+
 test() ->
     XX = 10,
     A = fun(YY) ->
@@ -25,7 +44,9 @@ test2(Param) ->
 	    ATuple
     end.
 
-test3(Bar) ->
+test3(Bar) when is_atom(Bar) ->
     (fun(Foo) ->
 	    {Foo}
-    end)(Bar).
+    end)(Bar);
+test3(Bar) ->
+    Bar.

@@ -17,6 +17,7 @@ set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
 
 get_binding(Name, BindingStore) ->
+    io:format("get_binding ~p~n",[Name]),
     case orddict:find(Name, BindingStore) of
 	{ok, Value} -> {value, Value};
 	error -> unbound
@@ -31,7 +32,6 @@ test2() ->
     FF = binary_to_list(F),
     {ok, T, _} = core_scan:string(FF),
     {ok, AST} = core_parse:parse(T).
-    
 
 test() ->
     L =  {c_let,[],
@@ -200,7 +200,7 @@ eval(#c_apply { op = Function, args = Args}, BindingStore) ->
 %% Evaluates a fun
 eval(#c_fun { vars = Vars, body = Body }, BindingStore) ->
     F = fun(Args) ->
-		eval_fun(Args, Vars, Body, BindingStore)
+		eval_fun(Args, Vars , Body, BindingStore)
 	end,
     {F, BindingStore};
 
