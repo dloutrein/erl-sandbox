@@ -17,7 +17,6 @@ set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
 
 get_binding(Name, BindingStore) ->
-    io:format("get_binding ~p~n",[Name]),
     case orddict:find(Name, BindingStore) of
 	{ok, Value} -> {value, Value};
 	error -> unbound

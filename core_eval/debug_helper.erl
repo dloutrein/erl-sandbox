@@ -2,7 +2,7 @@
 %%% Description :
 %%% Created : 25 Jul 2006 by Rudolph van Graan <>
 
--module(debughelper).
+-module(debug_helper).
 
 -export([start/0,
          trace/1,

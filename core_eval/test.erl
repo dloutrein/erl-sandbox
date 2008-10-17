@@ -11,13 +11,13 @@ run() ->
     {ok, T, _} = core_scan:string(FF),
     {ok, AST} = core_parse:parse(T),
     %% run the tests
-    io:format("AST=~p~n", [AST]),
     Bindings = core_eval:eval(AST, orddict:new()),
+
     {Result, _} = core_eval:call('test/0', [], Bindings),
     io:format("Result=~p, ~p~n", [Result, test()]),
     Result = test(),
 
-    {Result3, _} = core_eval:call('test3/1', [2], Bindings),
+    {Result3, _} = core_eval:call('test3/1', 2, Bindings),
     io:format("Result3=~p, ~p~n", [Result3, test3(2)]),
     Result3 = test3(2).
     
