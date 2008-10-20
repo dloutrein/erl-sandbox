@@ -7,12 +7,12 @@
 
 %% display core AST represention of the file test.erl
 ex() ->
-    {ok, _} = compile:file("test/test.erl"),
-    {ok, _} = compile:file("test/test.erl", [to_core]),
-    {ok, F} = file:read_file("test.core"),
+    {ok, _} = compile:file("test/core_eval_tests.erl", [to_core]),
+    {ok, F} = file:read_file("core_eval_tests.core"),
     FF = binary_to_list(F),
     {ok, T, _} = core_scan:string(FF),
-    core_parse:parse(T).
+    {ok, AST} = core_parse:parse(T),
+    AST.
 
 set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
@@ -67,7 +67,7 @@ eval(#c_let {} = Let, BindingStore) ->
 		{Value, NewBindingStore} = eval(Let#c_let.arg, BindingStore),
 		set_binding(Name, Value, NewBindingStore);
 	    Vars ->
-		%% the evaluation of the arguments should produce a list, 
+		%% the evaluation of the arguments should produce a list,
 		%% as it is (normaly) a c_value
 		{Values, NewBindingStore} = eval(Let#c_let.arg, BindingStore),
 		lists:foldl(fun({#c_var { name = Name }, Value}, FunBindingStore) ->
@@ -77,7 +77,7 @@ eval(#c_let {} = Let, BindingStore) ->
     %% evaluate the result
     {Result, IntermediateBS2} = eval(Let#c_let.body, IntermediateBS),
     %% Remove all binding that has been created
-    FinalBinding = 
+    FinalBinding =
 	lists:foldl(fun(#c_var { name = Name }, FoldBindingStore) ->
 			    remove_binding(Name, FoldBindingStore)
 		    end, IntermediateBS2, Let#c_let.vars),
@@ -104,7 +104,7 @@ eval(#c_values { es = Values }, BindingStore) ->
 
 %% evaluate a tuple
 eval(#c_tuple {es = Values}, BindingStore) ->
-    {Result, Bindings} = 
+    {Result, Bindings} =
 	lists:mapfoldl(fun(Value, FunBindingStore) ->
 			       eval(Value, FunBindingStore)
 		       end, BindingStore, Values),
@@ -119,7 +119,7 @@ eval(#c_cons { hd = Head, tl = Tail}, BindingStore) ->
 
 
 %% evaluate a function call
-eval(#c_call { module = M, name = F, args = Args}, BindingStore) -> 
+eval(#c_call { module = M, name = F, args = Args}, BindingStore) ->
     {Module, ModuleBS} = eval(M, BindingStore),
     {Function, FunctionBS} = eval(F, ModuleBS),
     {RealArgs, ArgsBS} = lists:mapfoldl(fun(Arg, FunBS) ->
@@ -134,7 +134,16 @@ eval(#c_primop { name = F, args = Args}, BindingStore) ->
 						eval(Arg, FunBS)
 					end, FunctionBS, Args),
     {apply(Function, RealArgs), ArgsBS};
-    
+
+%% evaluate a try
+eval(#c_try { arg = Arg, vars = Vars, body = Body, evars = EVars, handler = Handler} = Try,
+     BindingStore) ->
+    ct:print("try=~p~n", [Try]),
+    {ArgValue, ArgBS} = eval(Arg, BindingStore),
+%    case is_pattern_match(ArgValue,
+    ct:print("Argvalue=~p~n", [ArgValue]),
+    ok;
+
 %% evaluate a case
 eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
     {ArgValue, ArgBS} = eval(Arg, BindingStore),
@@ -143,7 +152,7 @@ eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
 %% This element is not implemented for now
 eval(Element, _BindingStore) ->
     erlang:error({not_implemented, Element}).
-	
+
 %% evaluate a list of clauses until one match, or raise a error
 eval_clauses([], _Value, _BindingStore) ->
     erlang:error(nomatch);
@@ -157,7 +166,7 @@ eval_clauses([Clause | Clauses], Value, BindingStore) ->
 	{false, _} ->
 	    eval_clauses(Clauses, Value, BindingStore)
     end.
- 
+
 %% evaluate a clause. Return {true, NewBindingStore} or {false, BindingStore}
 eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
 	    _Value, BindingStore) ->
@@ -179,7 +188,7 @@ eval_clause(#c_clause { pats = [Pattern | PatternsTail] } = Patterns,
 	{false, PatternsBS} ->
 	    {false, PatternsBS}
     end.
- 
+
 is_pattern_match(#c_literal {} = Litteral, Value, BindingStore) ->
     if Litteral#c_literal.val =:= Value ->
 	    {true, BindingStore};
@@ -187,10 +196,10 @@ is_pattern_match(#c_literal {} = Litteral, Value, BindingStore) ->
 	    {false, BindingStore}
     end;
 
-is_pattern_match(#c_tuple {}, Value, BindingStore) 
+is_pattern_match(#c_tuple {}, Value, BindingStore)
   when is_tuple(Value) =:= false ->
     {false, BindingStore};
-is_pattern_match(#c_tuple { es = Elements}, Value, BindingStore) 
+is_pattern_match(#c_tuple { es = Elements}, Value, BindingStore)
   when tuple_size(Value) =/= length(Elements) ->
     {false, BindingStore};
 is_pattern_match(#c_tuple { es = Elements}, Value, BindingStore) ->
@@ -203,7 +212,7 @@ is_pattern_match(#c_cons {} = Cons, Value, BindingStore) ->
     match_cons_elements(Cons, Value, BindingStore);
 
 is_pattern_match(#c_var { name = Name}, Value, BindingStore) ->
-    %% if the Variable is already bound, the values must match. Otherwise, we 
+    %% if the Variable is already bound, the values must match. Otherwise, we
     %% bind the value to the variable
     case get_binding(Name, BindingStore) of
 	{value, Value} ->  %% value is matched here
@@ -272,7 +281,7 @@ eval_fun(Args, Vars, Body, BindingStore) when length(Args) =:= length(Vars) ->
     {Result, _} = eval(Body, ArgsBS),
     {Result, BindingStore}.
 
-%% Convert an erlang term (int, float, atom, char, list, tuple, []) into its core 
+%% Convert an erlang term (int, float, atom, char, list, tuple, []) into its core
 %% equivalent.
 term_to_core(Term) when is_tuple(Term) ->
     #c_tuple { es = [ term_to_core(E) || E <- tuple_to_list(Term)] };

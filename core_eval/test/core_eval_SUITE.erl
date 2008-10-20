@@ -1,13 +1,13 @@
 %%%-------------------------------------------------------------------
 %%% File    : core_eval_SUITE.erl
 %%% Author  : denis <>
-%%% Description : 
+%%% Description :
 %%%
 %%% Created : 18 Oct 2008 by denis <>
 %%%-------------------------------------------------------------------
 -module(core_eval_SUITE).
 
-%% module where are defined functions which will be evaluated to test core 
+%% module where are defined functions which will be evaluated to test core
 %% interpreter.
 -define(TEST_MODULE, core_eval_tests).
 
@@ -120,9 +120,13 @@ end_per_testcase(_TestCase, _Config) ->
 %%
 %% Description: Returns the list of test cases that are to be executed.
 %%--------------------------------------------------------------------
-all() -> 
-    [core_eval_test1, core_eval_test2, core_eval_test3, core_eval_test4,
-    core_eval_test5].
+all() ->
+    [
+%%      core_eval_test1,
+%%      core_eval_test2,
+%%      core_eval_test3,
+%%      core_eval_test4,
+     core_eval_test5].
 
 
 %%--------------------------------------------------------------------
@@ -130,7 +134,7 @@ all() ->
 %%--------------------------------------------------------------------
 
 core_eval_test1(Config) ->
-    Bindings = proplists:get_value(bindings, Config), 
+    Bindings = proplists:get_value(bindings, Config),
     {Result, _} = core_eval:call(test1, [], Bindings),
     Result = ?TEST_MODULE:test1().
 
