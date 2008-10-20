@@ -6,7 +6,8 @@
 
 -export([start/0,
          trace/1,
-         trace/2]).
+         trace/2,
+	 stop/0]).
 
 start() ->
   dbg:tracer(),
@@ -17,3 +18,6 @@ trace(ModuleName) ->
 
 trace(ModuleName,Function) ->
   dbg:tpl(ModuleName,Function,[{'_',[],[{message,{return_trace}}]}]).
+
+stop() ->
+    dbg:stop().

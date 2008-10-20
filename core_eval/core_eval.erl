@@ -7,7 +7,8 @@
 
 %% display core AST represention of the file test.erl
 ex() ->
-    {ok, _} = compile:file("test.erl", [to_core]),
+    {ok, _} = compile:file("test/test.erl"),
+    {ok, _} = compile:file("test/test.erl", [to_core]),
     {ok, F} = file:read_file("test.core"),
     FF = binary_to_list(F),
     {ok, T, _} = core_scan:string(FF),
@@ -25,156 +26,10 @@ get_binding(Name, BindingStore) ->
 remove_binding(Name, BindingStore) ->
     orddict:erase(Name, BindingStore).
 
-test2() ->
-    {ok, _} = compile:file("test2.erl", [to_core]),
-    {ok, F} = file:read_file("test2.core"),
-    FF = binary_to_list(F),
-    {ok, T, _} = core_scan:string(FF),
-    {ok, AST} = core_parse:parse(T).
-
-test() ->
-    L =  {c_let,[],
-	  [{c_var,[],'X1'}],
-	  {c_literal,[],200},
-	  {c_var,[],'X1'}},
-    L2 =  {c_let,[],
-	   [{c_var,[],'X1'},{c_var,[],'X2'}],
-	   {c_values,[],[{c_literal,[],20},{c_literal,[],foo}]},
-	   {c_tuple,[],[{c_var,[],'X1'},{c_var,[],'X2'}]}},
-    L3 =  {c_call,[],
-	   {c_literal,[],io},
-	   {c_literal,[],format},
-	   [{c_cons,[],
-	     {c_literal,[],72},
-	     {c_cons,[],
-	      {c_literal,[],101},
-	      {c_cons,[],
-	       {c_literal,[],108},
-	       {c_cons,[],
-		{c_literal,[],108},
-		{c_cons,[],
-		 {c_literal,[],111},
-		 {c_cons,[],
-		  {c_literal,[],32},
-		  {c_cons,[],
-		   {c_literal,[],119},
-		   {c_cons,[],
-		    {c_literal,[],111},
-		    {c_cons,[],
-		     {c_literal,[],114},
-		     {c_cons,[],
-		      {c_literal,[],108},
-		      {c_cons,[],
-		       {c_literal,[],100},
-		       {c_cons,[],
-			{c_literal,[],32},
-			{c_cons,[],
-			 {c_literal,[],33},
-			 {c_literal,[],[]}}}}}}}}}}}}}}]},
-    L4 = {c_case,[],
-%	  {c_literal,[],aaa},
-%	  {c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]},
-	  {c_tuple,[],[{c_literal,[],1},{c_literal,[],2.30000}]},
-%% 	  {c_cons,[],
-%% 	   {c_literal,[],a},
-%% 	   {c_cons,[],
-%% 	    {c_literal,[],b},
-%% 	    {c_cons,[],
-%% 	     {c_literal,[],12},
-%% 	     {c_cons,[],
-%% 	      {c_tuple,[],
-%% 	       [{c_cons,[],
-%% 		 {c_literal,[],102},
-%% 		 {c_cons,[],
-%% 		  {c_literal,[],111},
-%% 		  {c_cons,[],{c_literal,[],111},{c_literal,[],[]}}}},
-%% 		{c_cons,[],
-%% 		 {c_literal,[],98},
-%% 		 {c_cons,[],
-%% 		  {c_literal,[],97},
-%% 		  {c_cons,[],{c_literal,[],114},{c_literal,[],[]}}}}]},
-%% 	      {c_literal,[],[]}}}}},
-	  [{c_clause,[],
-	    [{c_literal,[],true}],
-	    {c_literal,[],true},
-	    {c_literal,[],foo}},
-	   {c_clause,[],
-	    [{c_literal,[],false}],
-	    {c_literal,[],true},
-	    {c_literal,[],bar}},
-	   {c_clause,[],
-	    [{c_tuple,[],[{c_literal,[],t1},{c_literal,[],t2}]}],
-	    {c_literal,[],true},
-	    {c_literal,[],buzz}},
-	   {c_clause,[],
-	    [{c_cons,[],
-	      {c_literal,[],a},
-	      {c_cons,[],
-	       {c_literal,[],b},
-	       {c_cons,[],
-		{c_literal,[],12},
-		{c_cons,[],
-		 {c_tuple,[],
-		  [{c_cons,[],
-		    {c_literal,[],102},
-		    {c_cons,[],
-		     {c_literal,[],111},
-		     {c_cons,[],{c_literal,[],111},{c_literal,[],[]}}}},
-		   {c_cons,[],
-		    {c_literal,[],98},
-		    {c_cons,[],
-		     {c_literal,[],97},
-		     {c_cons,[],{c_literal,[],114},{c_literal,[],[]}}}}]},
-		 {c_literal,[],[]}}}}}],
-	    {c_literal,[],true},
-	    {c_literal,[],great}},
-	   {c_clause,[],
-	    [{c_alias,[],
-	      {c_var,[],'ATuple'},
-	      {c_tuple,[],[{c_literal,[],1},{c_literal,[],2.30000}]}}],
-	    {c_literal,[],true},
-	    {c_var,[],'ATuple'}},
-	   {c_clause,
-	    [compiler_generated],
-	    [{c_var,[],'_cor2'}],
-	    {c_literal,[],true},
-	    {c_primop,[],
-	     {c_literal,[],match_fail},
-	     [{c_tuple,[],
-	       [{c_literal,[],case_clause},
-		{c_var,[],'_cor2'}]}]}}]},
-
-    L5 = {c_fun,
-	  [{id,{0,17602895,'-test/0-fun-0-'}}],
-	  [{c_var,[],'_cor1'}],
-	  {c_call,[],
-	   {c_literal,[],erlang},
-	   {c_literal,[],'+'},
-	   [{c_literal,[],10},{c_var,[],'_cor1'}]}},
-
-    L6 = {c_fun,[],
-	  [{c_var,[],'_cor0'}],
-	  {c_let,[],
-	   [{c_var,[],'_cor3'}],
-	   {c_fun,
-	    [{id,{1,70942264,'-test3/1-fun-0-'}}],
-	    [{c_var,[],'_cor1'}],
-	    {c_tuple,[],[{c_var,[],'_cor1'}]}},
-	   {c_apply,[],{c_var,[],'_cor3'},[{c_var,[],'_cor0'}]}}},
-
-    eval(L, orddict:new()),
-    eval(L2, orddict:new()),
-    eval(L3, orddict:new()),
-    eval(L4, orddict:new()),
-    eval(L5, orddict:new()),
-    eval(L6, orddict:new()),
-    {ok, L7} = ex(),
-    %% core_eval:call('test3/1', 10, B)
-    eval(L7, orddict:new()).
-
 %% just for tests
-call(Name, Arg, BindingStore) ->
-    eval({c_apply, [], {c_var,[], Name}, [{c_literal, [], Arg}]}, BindingStore).
+call(Name, Args, BindingStore) ->
+    FunName = list_to_atom(atom_to_list(Name) ++ "/" ++ integer_to_list(length(Args))),
+    eval({c_apply, [], {c_var,[], FunName}, [term_to_core(Arg) || Arg <- Args]}, BindingStore).
 
 %% evaluate a module. all functions are bound in the given BindingStore and then returned.
 %% Exported functions and attributes are ignored.
@@ -283,7 +138,11 @@ eval(#c_primop { name = F, args = Args}, BindingStore) ->
 %% evaluate a case
 eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
     {ArgValue, ArgBS} = eval(Arg, BindingStore),
-    eval_clauses(Clauses, ArgValue, ArgBS).
+    eval_clauses(Clauses, ArgValue, ArgBS);
+
+%% This element is not implemented for now
+eval(Element, _BindingStore) ->
+    erlang:error({not_implemented, Element}).
 	
 %% evaluate a list of clauses until one match, or raise a error
 eval_clauses([], _Value, _BindingStore) ->
@@ -412,3 +271,16 @@ eval_fun(Args, Vars, Body, BindingStore) when length(Args) =:= length(Vars) ->
     %% we ignore the new binding store, as we return the original one
     {Result, _} = eval(Body, ArgsBS),
     {Result, BindingStore}.
+
+%% Convert an erlang term (int, float, atom, char, list, tuple, []) into its core 
+%% equivalent.
+term_to_core(Term) when is_tuple(Term) ->
+    #c_tuple { es = [ term_to_core(E) || E <- tuple_to_list(Term)] };
+term_to_core([]) ->
+    #c_literal { val = [] };
+term_to_core([Head | Tail]) ->
+    #c_cons { hd = term_to_core(Head), tl = term_to_core(Tail) };
+term_to_core(Term) when is_integer(Term);
+		       is_float(Term);
+		       is_atom(Term) ->
+    #c_literal { val = Term }.
