@@ -135,19 +135,56 @@ eval(#c_primop { name = F, args = Args}, BindingStore) ->
 					end, FunctionBS, Args),
     {apply(Function, RealArgs), ArgsBS};
 
-%% evaluate a try
-eval(#c_try { arg = Arg, vars = Vars, body = Body, evars = EVars, handler = Handler} = Try,
-     BindingStore) ->
-    ct:print("try=~p~n", [Try]),
-    {ArgValue, ArgBS} = eval(Arg, BindingStore),
-%    case is_pattern_match(ArgValue,
-    ct:print("Argvalue=~p~n", [ArgValue]),
-    ok;
-
 %% evaluate a case
 eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
     {ArgValue, ArgBS} = eval(Arg, BindingStore),
     eval_clauses(Clauses, ArgValue, ArgBS);
+
+%%   {{c_fname,[],test5,1},
+%%    {c_fun,[],
+%%     [{c_var,[],'_cor0'}],
+%%     {c_try,[],
+%%      {c_call,[],
+%%       {c_literal,[],dict},
+%%       {c_literal,[],append},
+%%       [{c_literal,[],key},
+%%        {c_literal,[],value},
+%%        {c_var,[],'_cor0'}]},
+%%      [{c_var,[],'_cor1'}],
+%%      {c_var,[],'_cor1'},
+%%      [{c_var,[],'_cor4'},{c_var,[],'_cor3'},{c_var,[],'_cor2'}],
+%%      {c_literal,[],the_exception}}}}
+%% evaluate a try
+eval(#c_try { arg = Arg, vars = Vars, body = Body, evars = EVars, handler = Handler },
+     BindingStore) ->
+    EvalResult = try
+		      {success, eval(Arg, BindingStore)}
+		  catch
+		      Class:Reason ->
+			  {exception, Class, Reason}
+		  end,
+    case EvalResult of
+	{success, {ArgValues, ArgBS}} ->
+	    %% bind the values to the vars given in Vars
+	    VarsBS = case length(Vars) of
+			 1 ->
+			     Var = hd(Vars),
+			     set_binding(Var#c_var.name, ArgValues, ArgBS);
+			 _ ->
+			     %% @todo find the best way to manage this case
+			     erlang:error({not_implemented, "Multiple vars in try"})
+		     end,
+	    eval(Body, VarsBS);
+	{exception, ExClass, ExReason} ->
+	    %% EVars must have 3 elements  as defined in specs
+	    [ClassVar, ReasonVar, ImplVar] = EVars,
+	    BindingStore2 = set_binding(ClassVar#c_var.name, ExClass, BindingStore),
+	    BindingStore3 = set_binding(ReasonVar#c_var.name, ExReason, BindingStore2),
+	    %% @todo: what to use as implementation dependant ?
+	    BindingStore4 = set_binding(ImplVar#c_var.name, erlang:get_stacktrace(), BindingStore3),
+	    %% lets go to evaluate the handler of the exception
+	    eval(Handler, BindingStore4)
+    end;
 
 %% This element is not implemented for now
 eval(Element, _BindingStore) ->

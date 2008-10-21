@@ -167,5 +167,7 @@ core_eval_test4(Config) ->
 
 core_eval_test5(Config) ->
     Bindings = proplists:get_value(bindings, Config),
-    {Result, _} = core_eval:call(test5, [1], Bindings),
-    Result = ?TEST_MODULE:test5(1).
+    {Result, _} = core_eval:call(test5, [dict:new()], Bindings),
+    Result = ?TEST_MODULE:test5(dict:new()),
+    {Result2, _} = core_eval:call(test5, [foo], Bindings),
+    Result2 = ?TEST_MODULE:test5(foo).

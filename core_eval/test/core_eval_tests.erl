@@ -41,24 +41,13 @@ test4(Param1, Param2) ->
 
 test5(Param) ->
     try
-	integer_to_list(Param)
-    catch
-	_:_ ->
-	    foo
-    end.
-
-test6(Param) ->
-    try dict:append(key, value, Param) of
-	A when A < 10 ->
-	    lesser;
-	A when A >= 10 ->
-	    greater_equal
+	dict:append(key, value, Param)
     catch
 	_:_ ->
 	    the_exception
     end.
 
-test7(Param) ->
+test6(Param) ->
     case Param of
 	Param when is_integer(Param), Param =< 10 ->
 	    lesser_equal;
