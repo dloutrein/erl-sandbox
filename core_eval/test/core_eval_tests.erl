@@ -40,6 +40,14 @@ test4(Param1, Param2) ->
     end.
 
 test5(Param) ->
+    try
+	dict:append(key, value, Param)
+    catch
+	_:_ ->
+	    the_exception
+    end.
+
+test6(Param) ->
     case Param of
 	Param when is_integer(Param), Param =< 10 ->
 	    inferior_equal;

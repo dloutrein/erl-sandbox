@@ -7,12 +7,12 @@
 
 %% display core AST represention of the file test.erl
 ex() ->
-    {ok, _} = compile:file("test/test.erl"),
-    {ok, _} = compile:file("test/test.erl", [to_core]),
-    {ok, F} = file:read_file("test.core"),
+    {ok, _} = compile:file("test/core_eval_tests.erl", [to_core]),
+    {ok, F} = file:read_file("core_eval_tests.core"),
     FF = binary_to_list(F),
     {ok, T, _} = core_scan:string(FF),
-    core_parse:parse(T).
+    {ok, AST} = core_parse:parse(T),
+    AST.
 
 set_binding(Name, Value, BindingStore) ->
     orddict:store(Name, Value, BindingStore).
@@ -139,6 +139,40 @@ eval(#c_primop { name = F, args = Args}, BindingStore) ->
 eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
     {ArgValue, ArgBS} = eval(Arg, BindingStore),
     eval_clauses(Clauses, ArgValue, ArgBS);
+
+%%   {{c_fname,[],test5,1},
+%%    {c_fun,[],
+%%     [{c_var,[],'_cor0'}],
+%%     {c_try,[],
+%%      {c_call,[],
+%%       {c_literal,[],dict},
+%%       {c_literal,[],append},
+%%       [{c_literal,[],key},
+%%        {c_literal,[],value},
+%%        {c_var,[],'_cor0'}]},
+%%      [{c_var,[],'_cor1'}],
+%%      {c_var,[],'_cor1'},
+%%      [{c_var,[],'_cor4'},{c_var,[],'_cor3'},{c_var,[],'_cor2'}],
+%%      {c_literal,[],the_exception}}}}
+%% evaluate a try
+eval(#c_try { arg = Arg, vars = Vars, body = Body }, BindingStore) ->
+    ct:print("argvalues=~p~n", [Arg]),
+    {ArgValues, ArgBS} = eval(Arg, BindingStore),
+    ct:print("argvalues=~p~n", [ArgValues]),
+    %% bind the values to the var given in Vars
+    VarsBS = case length(Vars) of
+		 1 -> 
+		     Var = hd(Vars),
+		     ct:print("Var=~p~n", [Var]),
+		     set_binding(Var#c_var.name, ArgValues, ArgBS);
+		 _ ->
+		     %% @todo find the best way to manage this case
+		     erlang:error({not_implemented, "Multiple vars in try"})
+	     end,
+    ct:print("VarsBS=~p~n", [VarsBS]),
+    R = eval(Body, VarsBS),
+    ct:print("R=~p~n", [R]),
+    R;
 
 %% This element is not implemented for now
 eval(Element, _BindingStore) ->
