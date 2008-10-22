@@ -56,3 +56,22 @@ test6(Param) ->
 	_ ->
 	    not_integer
     end.
+
+test7(Param) ->
+    try
+	case Param of 
+	    error ->
+		throw(an_error);
+	    warning ->
+		erlang:error(error_class);
+	    _ ->
+		erlang:exit({exit, "Goodbye"})
+	end
+    catch
+	error:error_class ->
+	    error_class;
+	  _:an_error ->
+	    an_error;
+	  Class:Reason ->
+	    {Class, Reason}
+    end.

@@ -126,7 +126,9 @@ all() ->
 %%      core_eval_test2,
 %%      core_eval_test3,
 %%      core_eval_test4,
-     core_eval_test5].
+%%      core_eval_test5,
+%%      core_eval_test6,
+     core_eval_test7].
 
 
 %%--------------------------------------------------------------------
@@ -171,3 +173,21 @@ core_eval_test5(Config) ->
     Result = ?TEST_MODULE:test5(dict:new()),
     {Result2, _} = core_eval:call(test5, [foo], Bindings),
     Result2 = ?TEST_MODULE:test5(foo).
+
+core_eval_test6(Config) ->
+    Bindings = proplists:get_value(bindings, Config),
+    {Result, _} = core_eval:call(test6, [5], Bindings),
+    Result = ?TEST_MODULE:test6(5),
+    {Result2, _} = core_eval:call(test6, [20], Bindings),
+    Result2 = ?TEST_MODULE:test6(20),
+    {Result3, _} = core_eval:call(test6, [foo], Bindings),
+    Result3 = ?TEST_MODULE:test6(foo).
+
+core_eval_test7(Config) ->
+    Bindings = proplists:get_value(bindings, Config),
+    {Result, _} = core_eval:call(test7, [error], Bindings),
+    Result = ?TEST_MODULE:test7(error),
+    {Result2, _} = core_eval:call(test7, [warning], Bindings),
+    Result2 = ?TEST_MODULE:test7(warning),
+    {Result3, _} = core_eval:call(test7, [foo], Bindings),
+    Result3 = ?TEST_MODULE:test7(foo).

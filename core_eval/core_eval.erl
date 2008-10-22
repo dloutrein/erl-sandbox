@@ -183,7 +183,12 @@ eval(#c_try { arg = Arg, vars = Vars, body = Body, evars = EVars, handler = Hand
 	    %% @todo: what to use as implementation dependant ?
 	    BindingStore4 = set_binding(ImplVar#c_var.name, erlang:get_stacktrace(), BindingStore3),
 	    %% lets go to evaluate the handler of the exception
-	    eval(Handler, BindingStore4)
+	    ct:print("handler=~p~n", [Handler]),
+	    ct:print("BS=~p~n", [BindingStore4]),
+	    {HandlerResult, _} = eval(Handler, BindingStore4),
+	    ct:print("handlerresult=~p~n", [HandlerResult]),
+
+	    {HandlerResult, BindingStore}
     end;
 
 %% This element is not implemented for now
@@ -216,12 +221,29 @@ eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
 	    {false, GuardBS}
     end;
 
-eval_clause(#c_clause { pats = [Pattern | PatternsTail] } = Patterns,
+eval_clause(#c_clause { pats = [Pattern], guard = Guard, body = Body } = Patterns,
 	    Value, BindingStore) ->
     %% test if each pattern match
     case is_pattern_match(Pattern, Value, BindingStore) of
 	{true, PatternsBS} ->
-	    eval_clause(Patterns#c_clause { pats = PatternsTail}, Value, PatternsBS);
+	    %% at this point, all patterns have matched, we can evaluate the guard, and
+	    %% if guard is true, evaluate the body
+	    case eval_guard(Guard, BindingStore) of
+		{true, GuardBS} ->
+		    {true, eval(Body, GuardBS)};
+		{false, GuardBS} ->
+		    {false, GuardBS}
+	    end;
+	    %eval_clause(Patterns#c_clause { pats = PatternsTail}, Values, PatternsBS);
+	{false, PatternsBS} ->
+	    {false, PatternsBS}
+    end;
+eval_clause(#c_clause { pats = [Pattern | PatternsTail] } = Patterns,
+	    [Value|Values], BindingStore) ->
+    %% test if each pattern match
+    case is_pattern_match(Pattern, Value, BindingStore) of
+	{true, PatternsBS} ->
+	    eval_clause(Patterns#c_clause { pats = PatternsTail}, Values, PatternsBS);
 	{false, PatternsBS} ->
 	    {false, PatternsBS}
     end.
@@ -276,7 +298,10 @@ is_pattern_match(#c_alias { var = #c_var { name = Name}, pat = Pattern}, Value, 
 	    end;
 	{false, PatternsBS} ->
 	    {false, PatternsBS}
-    end.
+    end;
+
+is_pattern_match(Unknown, _Value, _BindingStore) ->
+    erlang:error({not_implemented, is_pattern_match, Unknown}).
 
 match_tuple_elements(_, Value, _Index, BindingStore) when is_tuple(Value) =:= false ->
     {false, BindingStore};
