@@ -122,12 +122,12 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 all() ->
     [
-%%      core_eval_test1,
-%%      core_eval_test2,
-%%      core_eval_test3,
-%%      core_eval_test4,
-%%      core_eval_test5,
-%%      core_eval_test6,
+     core_eval_test1,
+     core_eval_test2,
+     core_eval_test3,
+     core_eval_test4,
+     core_eval_test5,
+     core_eval_test6,
      core_eval_test7].
 
 

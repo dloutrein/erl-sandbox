@@ -221,14 +221,14 @@ eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
 	    {false, GuardBS}
     end;
 
-eval_clause(#c_clause { pats = [Pattern], guard = Guard, body = Body } = Patterns,
+eval_clause(#c_clause { pats = [Pattern], guard = Guard, body = Body },
 	    Value, BindingStore) ->
     %% test if each pattern match
     case is_pattern_match(Pattern, Value, BindingStore) of
 	{true, PatternsBS} ->
 	    %% at this point, all patterns have matched, we can evaluate the guard, and
 	    %% if guard is true, evaluate the body
-	    case eval_guard(Guard, BindingStore) of
+	    case eval_guard(Guard, PatternsBS) of
 		{true, GuardBS} ->
 		    {true, eval(Body, GuardBS)};
 		{false, GuardBS} ->
@@ -244,6 +244,24 @@ eval_clause(#c_clause { pats = [Pattern | PatternsTail] } = Patterns,
     case is_pattern_match(Pattern, Value, BindingStore) of
 	{true, PatternsBS} ->
 	    eval_clause(Patterns#c_clause { pats = PatternsTail}, Values, PatternsBS);
+	{false, PatternsBS} ->
+	    {false, PatternsBS}
+    end;
+
+eval_clause(#c_clause { pats = Pattern, guard = Guard, body = Body },
+	    Value, BindingStore) when not is_list(Pattern)->
+    %% test if each pattern match
+    case is_pattern_match(Pattern, Value, BindingStore) of
+	{true, PatternsBS} ->
+	    %% at this point, all patterns have matched, we can evaluate the guard, and
+	    %% if guard is true, evaluate the body
+	    case eval_guard(Guard, PatternsBS) of
+		{true, GuardBS} ->
+		    {true, eval(Body, GuardBS)};
+		{false, GuardBS} ->
+		    {false, GuardBS}
+	    end;
+	    %eval_clause(Patterns#c_clause { pats = PatternsTail}, Values, PatternsBS);
 	{false, PatternsBS} ->
 	    {false, PatternsBS}
     end.
