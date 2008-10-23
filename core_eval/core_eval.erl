@@ -117,6 +117,12 @@ eval(#c_cons { hd = Head, tl = Tail}, BindingStore) ->
     {HeadValue, HeadBS} = eval(Head, TailBS),
     {[ HeadValue | TailValues], HeadBS};
 
+%% evaluate a do (c_seq)
+eval(#c_seq { arg = Arg, body = Body }, BindingStore) ->
+    %% we don't use the result of th first evaluation
+    {_, _} = eval(Arg, BindingStore),
+    {BodyResult, _} = eval(Body, BindingStore),
+    {BodyResult, BindingStore};
 
 %% evaluate a function call
 eval(#c_call { module = M, name = F, args = Args}, BindingStore) ->
@@ -140,20 +146,6 @@ eval(#c_case { arg = Arg, clauses = Clauses }, BindingStore) ->
     {ArgValue, ArgBS} = eval(Arg, BindingStore),
     eval_clauses(Clauses, ArgValue, ArgBS);
 
-%%   {{c_fname,[],test5,1},
-%%    {c_fun,[],
-%%     [{c_var,[],'_cor0'}],
-%%     {c_try,[],
-%%      {c_call,[],
-%%       {c_literal,[],dict},
-%%       {c_literal,[],append},
-%%       [{c_literal,[],key},
-%%        {c_literal,[],value},
-%%        {c_var,[],'_cor0'}]},
-%%      [{c_var,[],'_cor1'}],
-%%      {c_var,[],'_cor1'},
-%%      [{c_var,[],'_cor4'},{c_var,[],'_cor3'},{c_var,[],'_cor2'}],
-%%      {c_literal,[],the_exception}}}}
 %% evaluate a try
 eval(#c_try { arg = Arg, vars = Vars, body = Body, evars = EVars, handler = Handler },
      BindingStore) ->
@@ -183,10 +175,7 @@ eval(#c_try { arg = Arg, vars = Vars, body = Body, evars = EVars, handler = Hand
 	    %% @todo: what to use as implementation dependant ?
 	    BindingStore4 = set_binding(ImplVar#c_var.name, erlang:get_stacktrace(), BindingStore3),
 	    %% lets go to evaluate the handler of the exception
-	    ct:print("handler=~p~n", [Handler]),
-	    ct:print("BS=~p~n", [BindingStore4]),
 	    {HandlerResult, _} = eval(Handler, BindingStore4),
-	    ct:print("handlerresult=~p~n", [HandlerResult]),
 
 	    {HandlerResult, BindingStore}
     end;
@@ -209,24 +198,11 @@ eval_clauses([Clause | Clauses], Value, BindingStore) ->
 	    eval_clauses(Clauses, Value, BindingStore)
     end.
 
-%% evaluate a clause. Return {true, NewBindingStore} or {false, BindingStore}
-eval_clause(#c_clause { pats = [], guard = Guard, body = Body },
-	    _Value, BindingStore) ->
-    %% at this point, all patterns have matched, we can evaluate the guard, and
-    %% if guard is true, evaluate the body
-    case eval_guard(Guard, BindingStore) of
-	{true, GuardBS} ->
-	    {true, eval(Body, GuardBS)};
-	{false, GuardBS} ->
-	    {false, GuardBS}
-    end;
-
-eval_clause(#c_clause { pats = [Pattern], guard = Guard, body = Body },
-	    Value, BindingStore) ->
+eval_clause(#c_clause { pats = Patterns, guard = Guard, body = Body}, Values, BindingStore) ->
     %% test if each pattern match
-    case is_pattern_match(Pattern, Value, BindingStore) of
-	{true, PatternsBS} ->
-	    %% at this point, all patterns have matched, we can evaluate the guard, and
+    case eval_patterns(Patterns, Values, BindingStore) of
+	{true, PatternsBS} -> 
+	    %% all patterns have matched, we can evaluate the guard, and
 	    %% if guard is true, evaluate the body
 	    case eval_guard(Guard, PatternsBS) of
 		{true, GuardBS} ->
@@ -234,34 +210,22 @@ eval_clause(#c_clause { pats = [Pattern], guard = Guard, body = Body },
 		{false, GuardBS} ->
 		    {false, GuardBS}
 	    end;
-	    %eval_clause(Patterns#c_clause { pats = PatternsTail}, Values, PatternsBS);
 	{false, PatternsBS} ->
 	    {false, PatternsBS}
-    end;
-eval_clause(#c_clause { pats = [Pattern | PatternsTail] } = Patterns,
-	    [Value|Values], BindingStore) ->
-    %% test if each pattern match
-    case is_pattern_match(Pattern, Value, BindingStore) of
-	{true, PatternsBS} ->
-	    eval_clause(Patterns#c_clause { pats = PatternsTail}, Values, PatternsBS);
-	{false, PatternsBS} ->
-	    {false, PatternsBS}
-    end;
+    end.
 
-eval_clause(#c_clause { pats = Pattern, guard = Guard, body = Body },
-	    Value, BindingStore) when not is_list(Pattern)->
+eval_patterns([], _Value, BindingStore) -> 
+    %% there is no more pattern to test, so we can return true and 
+    %% the new BindingStore
+    {true, BindingStore};
+eval_patterns([Pattern], Value, BindingStore) when not is_list(Pattern) ->
+    %% in this case, Value is not a list...
+    is_pattern_match(Pattern, Value, BindingStore);
+eval_patterns([Pattern | Patterns], [Value|Values], BindingStore) ->
     %% test if each pattern match
     case is_pattern_match(Pattern, Value, BindingStore) of
 	{true, PatternsBS} ->
-	    %% at this point, all patterns have matched, we can evaluate the guard, and
-	    %% if guard is true, evaluate the body
-	    case eval_guard(Guard, PatternsBS) of
-		{true, GuardBS} ->
-		    {true, eval(Body, GuardBS)};
-		{false, GuardBS} ->
-		    {false, GuardBS}
-	    end;
-	    %eval_clause(Patterns#c_clause { pats = PatternsTail}, Values, PatternsBS);
+	    eval_patterns(Patterns, Values, PatternsBS);
 	{false, PatternsBS} ->
 	    {false, PatternsBS}
     end.

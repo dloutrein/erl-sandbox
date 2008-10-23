@@ -75,3 +75,11 @@ test7(Param) ->
 	  Class:Reason ->
 	    {Class, Reason}
     end.
+
+test8() ->
+    io:format("a"),
+    io:format("b"),
+    io:format("c"),
+    io:format("d"),
+    io:format("~n").
+    

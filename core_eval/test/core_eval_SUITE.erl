@@ -56,11 +56,9 @@ init_per_suite(Config) ->
     {ok, _} = compile:file("../test/" ++ atom_to_list(?TEST_MODULE) ++ ".erl", [to_core]),
     {ok, F} = file:read_file(atom_to_list(?TEST_MODULE) ++ ".core"),
     FF = binary_to_list(F),
-    ct:print("~s~n", [FF]),
     {ok, T, _} = core_scan:string(FF),
     {ok, AST} = core_parse:parse(T),
     Bindings = core_eval:eval(AST, orddict:new()),
-    ct:print("bindings=~p~n", [Bindings]),
     [{bindings, Bindings} | Config].
 
 %%--------------------------------------------------------------------
@@ -128,7 +126,8 @@ all() ->
      core_eval_test4,
      core_eval_test5,
      core_eval_test6,
-     core_eval_test7].
+     core_eval_test7,
+     core_eval_test8].
 
 
 %%--------------------------------------------------------------------
@@ -191,3 +190,8 @@ core_eval_test7(Config) ->
     Result2 = ?TEST_MODULE:test7(warning),
     {Result3, _} = core_eval:call(test7, [foo], Bindings),
     Result3 = ?TEST_MODULE:test7(foo).
+
+core_eval_test8(Config) ->
+    Bindings = proplists:get_value(bindings, Config),
+    {Result, _} = core_eval:call(test8, [], Bindings),
+    Result = ?TEST_MODULE:test8().
