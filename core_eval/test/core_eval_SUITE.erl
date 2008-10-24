@@ -127,7 +127,8 @@ all() ->
      core_eval_test5,
      core_eval_test6,
      core_eval_test7,
-     core_eval_test8].
+     core_eval_test8,
+     core_eval_test9].
 
 
 %%--------------------------------------------------------------------
@@ -195,3 +196,9 @@ core_eval_test8(Config) ->
     Bindings = proplists:get_value(bindings, Config),
     {Result, _} = core_eval:call(test8, [], Bindings),
     Result = ?TEST_MODULE:test8().
+
+core_eval_test9(Config) ->
+    Bindings = proplists:get_value(bindings, Config),
+    {{Class, {Reason, _}}, _} = core_eval:call(test9, [foo], Bindings),
+    {Class, {Reason, _}} = ?TEST_MODULE:test9(foo),
+    ok.

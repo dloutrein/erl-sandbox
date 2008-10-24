@@ -83,3 +83,5 @@ test8() ->
     io:format("d"),
     io:format("~n").
     
+test9(Param) ->
+    catch(dict:append(key, value, Param)).

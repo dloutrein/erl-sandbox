@@ -180,6 +180,19 @@ eval(#c_try { arg = Arg, vars = Vars, body = Body, evars = EVars, handler = Hand
 	    {HandlerResult, BindingStore}
     end;
 
+%% evaluate the syntaxic sugar catch
+eval(#c_catch { body = Body}, BindingStore) ->
+    case (catch case eval(Body, BindingStore) of
+			    {Result, NewBindings} -> {success, Result, NewBindings}
+		end) of
+	{success, EvalResult, _} ->
+	    {EvalResult, BindingStore};
+	Exception ->
+	    {Exception, BindingStore}
+    end;
+%ct:print("foo=~p ~p ~n", [Result, F]),
+%    {Result, BindingStore};
+
 %% This element is not implemented for now
 eval(Element, _BindingStore) ->
     erlang:error({not_implemented, Element}).
