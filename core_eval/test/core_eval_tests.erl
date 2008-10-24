@@ -83,5 +83,16 @@ test8() ->
     io:format("d"),
     io:format("~n").
     
-test9(Param) ->
-    catch(dict:append(key, value, Param)).
+test9(Type) ->
+    catch(
+      case Type of
+	  success -> ok;
+          throw -> erlang:throw(a_throw);
+          error -> erlang:error(an_error);
+          exit -> erlang:exit(an_exit)
+      end).
+
+test10(foo) ->
+    foo;
+test10(bar) ->
+    bar.

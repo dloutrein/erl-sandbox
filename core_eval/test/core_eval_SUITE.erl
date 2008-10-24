@@ -199,6 +199,16 @@ core_eval_test8(Config) ->
 
 core_eval_test9(Config) ->
     Bindings = proplists:get_value(bindings, Config),
-    {{Class, {Reason, _}}, _} = core_eval:call(test9, [foo], Bindings),
-    {Class, {Reason, _}} = ?TEST_MODULE:test9(foo),
+    %% test a throw
+    {Reason, _} = core_eval:call(test9, [throw], Bindings),
+    Reason = ?TEST_MODULE:test9(throw),
+    %% test an exit
+    {{Class2, Reason2}, _} = core_eval:call(test9, [exit], Bindings),
+    {Class2, Reason2} = ?TEST_MODULE:test9(exit),
+    %% test an error
+    {{Class3, {Reason3, _}}, _} = core_eval:call(test9, [error], Bindings),
+    {Class3, {Reason3, _}} = ?TEST_MODULE:test9(error),
+    %% test a successfull call
+    {Result, _} = core_eval:call(test9, [success], Bindings),
+    Result = ?TEST_MODULE:test9(success),
     ok.
