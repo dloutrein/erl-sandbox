@@ -92,7 +92,6 @@ test9(Type) ->
           exit -> erlang:exit(an_exit)
       end).
 
-test10(foo) ->
-    foo;
-test10(bar) ->
-    bar.
+test10(Count) ->
+    [I || I <- lists:seq(1, Count)].
+

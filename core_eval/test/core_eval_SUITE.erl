@@ -120,15 +120,16 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 all() ->
     [
-     core_eval_test1,
-     core_eval_test2,
-     core_eval_test3,
-     core_eval_test4,
-     core_eval_test5,
-     core_eval_test6,
-     core_eval_test7,
-     core_eval_test8,
-     core_eval_test9].
+%%      core_eval_test1,
+%%      core_eval_test2,
+%%      core_eval_test3,
+%%      core_eval_test4,
+%%      core_eval_test5,
+%%      core_eval_test6,
+%%      core_eval_test7,
+%%      core_eval_test8,
+%%      core_eval_test9,
+     core_eval_test10].
 
 
 %%--------------------------------------------------------------------
@@ -212,3 +213,8 @@ core_eval_test9(Config) ->
     {Result, _} = core_eval:call(test9, [success], Bindings),
     Result = ?TEST_MODULE:test9(success),
     ok.
+
+core_eval_test10(Config) ->
+    Bindings = proplists:get_value(bindings, Config),
+    {Result, _} = core_eval:call(test10, [10], Bindings),
+    Result = ?TEST_MODULE:test10(10).

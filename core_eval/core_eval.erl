@@ -58,8 +58,21 @@ eval(#c_fun { vars = Vars, body = Body }, BindingStore) ->
 	end,
     {F, BindingStore};
 
+%% Evaluate a letrec
+eval(#c_letrec { defs = Defs, body = Body}, BindingStore) ->
+    NewBS = lists:foldl(
+	      fun({#c_fname { id = Name, arity = Arity}, Function}, FunBS) ->
+		      {Fun, FunBS2} = eval(Function, FunBS),
+		      FunName = list_to_atom(atom_to_list(Name) ++ "/" ++ integer_to_list(Arity)),
+		      set_binding(FunName, Fun, FunBS2)
+	      end, BindingStore, Defs),
+%ct:print("~p ~p ~n", [Body, NewBS]),
+    {Result, _} = eval(Body, NewBS),
+    {Result, BindingStore};
+
 %% evaluate a Let
 eval(#c_let {} = Let, BindingStore) ->
+ct:print("~p~n ~p ~n", [Let, BindingStore]),
     %% compute the values of each arguments and store them in the bindingStore
     IntermediateBS =
 	case Let#c_let.vars of
@@ -93,7 +106,18 @@ eval(#c_var {} = Var, BindingStore) ->
 	{value, Value} ->
 	    {Value, BindingStore};
 	_ ->
-	    erlang:error(unbound)
+	    erlang:error({unbound, Var#c_var.name})
+    end;
+
+%% return the implementation of a fun by it's fname
+eval(#c_fname { id = Id, arity = Arity}, BindingStore) ->
+    FunName = list_to_atom(atom_to_list(Id) ++ "/" ++ integer_to_list(Arity)),
+%ct:print("~p~n ~p ~n", [FunName, BindingStore]),
+    case get_binding(FunName, BindingStore) of
+	{value, Value} ->
+	    {Value, BindingStore};
+	_ ->
+	    erlang:error({unbound, FunName})
     end;
 
 %% Evalues all values and return a list of evaluation result for each
@@ -190,8 +214,6 @@ eval(#c_catch { body = Body}, BindingStore) ->
 	Exception ->
 	    {Exception, BindingStore}
     end;
-%ct:print("foo=~p ~p ~n", [Result, F]),
-%    {Result, BindingStore};
 
 %% This element is not implemented for now
 eval(Element, _BindingStore) ->
@@ -319,6 +341,13 @@ match_cons_elements(#c_cons { hd = Head, tl = Tail}, [Value | Values], BindingSt
 	    {false, MatchBS};
 	{true, MatchBS} ->
 	    match_cons_elements(Tail, Values, MatchBS)
+    end;
+match_cons_elements(Element, Value, BindingStore) when is_tuple(Element) ->
+    case is_pattern_match(Element, Value, BindingStore) of
+	{false, MatchBS} ->
+	    {false, MatchBS};
+	{true, MatchBS} ->
+	    is_pattern_match(Element, Value, MatchBS)
     end.
 
 eval_guard(Guard, BindingStore) ->
@@ -337,6 +366,15 @@ eval_fun(Args, Vars, Body, BindingStore) when length(Args) =:= length(Vars) ->
     %% we ignore the new binding store, as we return the original one
     {Result, _} = eval(Body, ArgsBS),
     {Result, BindingStore}.
+
+
+%% Evaluates a fun
+eval_rec_fun(Name, #c_fun { vars = Vars, body = Body }, BindingStore) ->
+    F = fun(Args, NewBS) ->
+		eval_fun(Args, Vars , Body, NewBS)
+	end,
+    set_binding(Name, Value, FunBS)
+    {F, BindingStore};
 
 %% Convert an erlang term (int, float, atom, char, list, tuple, []) into its core
 %% equivalent.
