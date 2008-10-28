@@ -62,9 +62,8 @@ eval(#c_fun { vars = Vars, body = Body }, BindingStore) ->
 eval(#c_letrec { defs = Defs, body = Body}, BindingStore) ->
     NewBS = lists:foldl(
 	      fun({#c_fname { id = Name, arity = Arity}, Function}, FunBS) ->
-		      {Fun, FunBS2} = eval(Function, FunBS),
 		      FunName = list_to_atom(atom_to_list(Name) ++ "/" ++ integer_to_list(Arity)),
-		      set_binding(FunName, Fun, FunBS2)
+		      build_rec_fun(FunName, Function, FunBS)
 	      end, BindingStore, Defs),
 %ct:print("~p ~p ~n", [Body, NewBS]),
     {Result, _} = eval(Body, NewBS),
@@ -368,13 +367,18 @@ eval_fun(Args, Vars, Body, BindingStore) when length(Args) =:= length(Vars) ->
     {Result, BindingStore}.
 
 
-%% Evaluates a fun
-eval_rec_fun(Name, #c_fun { vars = Vars, body = Body }, BindingStore) ->
-    F = fun(Args, NewBS) ->
-		eval_fun(Args, Vars , Body, NewBS)
-	end,
-    set_binding(Name, Value, FunBS)
-    {F, BindingStore};
+build_rec_fun(Name, #c_fun { vars = Vars, body = Body }, BindingStore) ->
+    FunRef = make_ref(),
+    FinalFun = fun(Args, BS) ->
+		       eval_fun(Args, Vars , Body, BS)
+	       end,
+    BaseFun = fun(Args, FunBS) ->
+		      RealFun = get_binding(FunRef, FunBS),
+		      apply(RealFun, Args)		      
+	      end,
+    IntermediateBS = set_binding(Name, BaseFun, BindingStore),
+    set_binding(FunRef, FinalFun, IntermediateBS).
+
 
 %% Convert an erlang term (int, float, atom, char, list, tuple, []) into its core
 %% equivalent.
