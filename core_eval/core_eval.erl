@@ -43,17 +43,21 @@ eval(#c_module { defs = Functions }, BindingStore) ->
 %% evaluate an application
 eval(#c_apply { op = Function, args = Args}, BindingStore) ->
     {Fun, FunBS} = eval(Function, BindingStore),
-    {Values, _ValuesBS} = lists:mapfoldl(fun(Arg, ArgBS) ->
+    {Values, ValuesBS} = lists:mapfoldl(fun(Arg, ArgBS) ->
 						eval(Arg, ArgBS)
 					end, FunBS, Args),
     %% special case in apply when there is no arguments given ([[]] in Values)
     %% The Fun has only one arguments (which is a list of arguments for the target fun)
-    {Result, _} = apply(Fun, [case Values of [[]] -> []; _ -> Values end]),
+ct:print("apply: ~p -> ~p~n", [Fun, [case Values of [[]] -> []; _ -> Values end, ValuesBS]]),
+%{Result, _} = apply(Fun, [[10], ValuesBS]),
+    {Result, _} = apply(Fun, [case Values of [[]] -> []; _ -> Values end, ValuesBS]),
     {Result, BindingStore};
 
 %% Evaluates a fun
 eval(#c_fun { vars = Vars, body = Body }, BindingStore) ->
-    F = fun(Args) ->
+    %% the second argument is not used. It is used only when the fun is created
+    %% in a letrec
+    F = fun(Args, _BS) ->
 		eval_fun(Args, Vars , Body, BindingStore)
 	end,
     {F, BindingStore};
@@ -65,7 +69,7 @@ eval(#c_letrec { defs = Defs, body = Body}, BindingStore) ->
 		      FunName = list_to_atom(atom_to_list(Name) ++ "/" ++ integer_to_list(Arity)),
 		      build_rec_fun(FunName, Function, FunBS)
 	      end, BindingStore, Defs),
-%ct:print("~p ~p ~n", [Body, NewBS]),
+ct:print("~p ~p ~n", [Body, NewBS]),
     {Result, _} = eval(Body, NewBS),
     {Result, BindingStore};
 
@@ -373,8 +377,8 @@ build_rec_fun(Name, #c_fun { vars = Vars, body = Body }, BindingStore) ->
 		       eval_fun(Args, Vars , Body, BS)
 	       end,
     BaseFun = fun(Args, FunBS) ->
-		      RealFun = get_binding(FunRef, FunBS),
-		      apply(RealFun, Args)		      
+		      {value, RealFun} = get_binding(FunRef, FunBS),
+		      apply(RealFun, [Args, FunBS])
 	      end,
     IntermediateBS = set_binding(Name, BaseFun, BindingStore),
     set_binding(FunRef, FinalFun, IntermediateBS).
